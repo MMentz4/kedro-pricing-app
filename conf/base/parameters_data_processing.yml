@@ -1,0 +1,17 @@
+# This is a boilerplate parameters config generated for pipeline 'data_processing'
+# using Kedro 0.19.1.
+#
+# Documentation for this file format can be found in "Parameters"
+# Link: https://docs.kedro.org/en/0.19.1/configuration/parameters.html
+
+# Parametric function input
+stat_func: "a ** 2 + b ** 2"
+specified_column: "remaining_balance" 
+new_col: 'parametric_calc_val'
+arg1: 'param1'
+arg2: 'param2'
+
+# Single parameter input function input
+risk: 0.1
+calc_variable: "remaining_balance"
+column_name: "risk_calculation"

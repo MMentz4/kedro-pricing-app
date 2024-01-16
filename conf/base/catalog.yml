@@ -2,3 +2,42 @@
 #
 # Documentation for this file format can be found in "The Data Catalog"
 # Link: https://docs.kedro.org/en/stable/data/data_catalog.html
+
+acc_lvl_data:
+    type: pandas.CSVDataset
+    filepath: data/input/acc_lvl_data.csv
+    load_args:
+        dtype:
+            'loan_id': int
+            'loan_amount': float
+            'interest_rate': float
+            'loan_term': int
+            'portfolio': str
+            'risk_grade': int
+            'mob': int
+            'param1': float
+            'param2': float
+
+pd_data:
+    type: pandas.CSVDataset
+    filepath: data/input/pd_data.csv
+    load_args:
+        index_col: 0
+        dtype:
+            'portfolio': str
+            'risk_grade': int
+            'mob': int
+            'pd': float
+
+renamed_amortization_data:
+    type: pandas.CSVDataset
+    filepath: data/input/pd_data.csv
+
+renamed_acc_lvl_data:
+    type: pandas.ParquetDataset
+    filepath: data/output/intermediate/renamed_acc_lvl_data.parquet
+
+renamed_pd_data:
+    type: pandas.ParquetDataset
+    filepath: data/output/intermediate/renamed_pd_data.parquet
+
