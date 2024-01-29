@@ -51,7 +51,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
         node(
             func=parametric_function,
-            inputs=['single_param_output_df', 'params:stat_func', 'params:new_col', 'params:specified_column', 'params:arg1', 'params:arg2'],
+            inputs=['single_param_output_df', 'params:stat_func', 'params:new_col', 'params:arg1', 'params:arg2'],
             outputs='param_func_output',
             name='parametric_function_node'
         )

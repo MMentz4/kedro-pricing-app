@@ -9,85 +9,71 @@ import re
 from scipy import stats
 
 def calculate_payments(df):
+    # Convert DataFrame columns to NumPy arrays for efficiency
+    interest_rate = df['interest_rate'].to_numpy() / 12
+    exposure = df['exposure'].to_numpy()
+    loan_term = df['loan_term'].to_numpy()
+    unique_id = df['unique_id'].to_numpy()
+    date_stamp = df['date_stamp'].to_numpy()
+    portfolio = df['portfolio'].to_numpy()
+    risk_grade = df['risk_grade'].to_numpy()
+    mob = df['mob'].to_numpy()
+    param1 = df['param1'].to_numpy()
+    param2 = df['param2'].to_numpy()
+
+    # Calculate monthly payment
+    monthly_payment = exposure * (interest_rate / (1 - (1 + interest_rate) ** -loan_term))
+
+    # Initialize the remaining balance as the loan amount
+    remaining_balance = exposure.copy()
+
+    # Initialize the t and t+1 counter
+    t = 0
+    t_plus_1 = t + 1
+
     # Initialize a list to store the amortization schedules
     amortization_schedules = []
 
-    # Apply the calculations to each row in the DataFrame
-    for index, row in df.iterrows():
-        # Initialize a dictionary to store the calculated values
-        calculations = {
-            't': [],
-            't+1': [],
-            'interest_payment': [],
-            'principal_payment': [],
-            'monthly_payment': [],
-            'remaining_balance': [],
-            'date_stamp': [],
-            'interest_rate': [],
-            'loan_term': [],
-            'portfolio': [],
-            'risk_grade': [],
-            'mob': [],
-            'param1': [],
-            'param2': []
-        }
+    # While there is still a balance remaining, calculate the interest and principal for the current payment
+    while remaining_balance.min() > 0:
+        # Calculate the interest for the current month
+        interest_payment = remaining_balance * interest_rate
 
-        # Convert annual rate to monthly
-        monthly_rate = row.interest_rate / 12
+        # Calculate the principal for the current month
+        principal_payment = monthly_payment - interest_payment
 
-        # Calculate monthly payment
-        monthly_payment = row.exposure * (monthly_rate / \
-                                          (1 - (1 + monthly_rate) ** -row.loan_term))
+        # If the principal payment for this month is greater than the remaining balance, adjust the principal payment and the monthly payment
+        mask = remaining_balance - principal_payment < 0
+        principal_payment[mask] = remaining_balance[mask]
+        monthly_payment[mask] = principal_payment[mask] + interest_payment[mask]
 
-        # Initialize the remaining balance as the loan amount
-        remaining_balance = row.exposure
+        # Append the calculated values to the amortization schedules
+        amortization_schedules.append(
+            pd.DataFrame({
+                't': t,
+                't+1': t_plus_1,
+                'interest_payment': interest_payment,
+                'principal_payment': principal_payment,
+                'monthly_payment': monthly_payment,
+                'remaining_balance': remaining_balance,
+                'unique_id': unique_id,
+                'date_stamp': date_stamp,
+                'interest_rate': interest_rate,
+                'loan_term': loan_term,
+                'portfolio': portfolio,
+                'risk_grade': risk_grade,
+                'mob': mob,
+                'param1': param1,
+                'param2': param2
+            })
+        )
 
-        # Initialize the t and t+1 counter
-        t = 0
-        t_plus_1 = t + 1
+        # Update the remaining balance
+        remaining_balance -= principal_payment
 
-        # While there is still a balance remaining, calculate the interest and 
-        #principal for the current payment
-        while remaining_balance > 0:
-            # Calculate the interest for the current month
-            interest_payment = remaining_balance * monthly_rate
-
-            # Calculate the principal for the current month
-            principal_payment = monthly_payment - interest_payment
-
-            # If the principal payment for this month is greater than \
-            # the remaining balance, adjust the principal payment and \
-            # the monthly payment
-            if remaining_balance - principal_payment < 0:
-                principal_payment = remaining_balance
-                monthly_payment = principal_payment + interest_payment
-
-            # Append the calculated values to the dictionary
-            for key in calculations.keys():
-                if key in ['t', 't+1']:
-                    calculations[key].append(eval(key))
-                elif key in ['interest_payment', 'principal_payment', \
-                             'monthly_payment', 'remaining_balance']:
-                    calculations[key].append(eval(key.lower().replace(' ', '_')))
-                else:
-                    calculations[key].append(getattr(row, \
-                                                     key.lower().replace(' ', '_')))
-
-            # Update the remaining balance
-            remaining_balance -= principal_payment
-
-            # Increment the t and t+1 counters
-            t += 1
-            t_plus_1 += 1
-
-        # Create a new DataFrame with the calculated values
-        amortization_schedule = pd.DataFrame(calculations)
-
-        # Add the unique_id as a new column to the DataFrame
-        amortization_schedule['unique_id'] = row.unique_id
-
-        # Add the amortization schedule to the list
-        amortization_schedules.append(amortization_schedule)
+        # Increment the t and t+1 counters
+        t += 1
+        t_plus_1 += 1
 
     # Concatenate all the amortization schedules into a single DataFrame
     amortization_schedules = pd.concat(amortization_schedules, ignore_index=True)
@@ -110,39 +96,39 @@ def term_structure(main_df,term_structure_df):
 
     return df
 
+# Converts the input string function to an object in the stats library
 def rand_func(function):
     # Get the function from the scipy.stats module
     func = getattr(stats, function)
     return func
 
+# Applies the function to every row in the data frame
 def any_func_apply(func, df, col_name, *arguments):
     # Apply func to each row of the data frame
-    df[col_name] = df.apply(lambda row: \
-                            func(*[row[arg] for arg in arguments]).pmf(*[row[arg] for arg in arguments])\
-                                *row['remaining_balance'], axis=1)
+    for arg in arguments:
+        df[col_name] = func(df[arg]).pmf(df[arg]) * df['remaining_balance']
     return df
 
-def replace_char_and_eval(row, stat_func, specified_column, *args):
+def replace_char_and_eval(df, stat_func, specified_column, *args):
     # Find all alphabetical characters in stat_func
     variables = re.findall('[a-zA-Z]', stat_func)
 
     # Replace the alphabetical characters with the values in each row \ 
     # in the columns with names stored in *args
     for var, value in zip(variables, args):
-        values = row[value]
-        stat_func = stat_func.replace(var, str(values))
+        stat_func = stat_func.replace(var, 'df[\'' + value + '\']')
 
-    return_var = eval(stat_func)
     # Evaluate the modified stat_func
-    # return eval(stat_func)*row[specified_column]
-    return return_var
+    value = eval(stat_func) 
+    df[specified_column] = value
+    return df
 
+# Main function for calculating the parametric model
 def parametric_function(df, stat_func, new_col, specified_column, *args):
     # If stat_func contains a mathematical character, evaluate it
     if any(char in stat_func for char in "=+*/-"):
         # Apply the function to each row of the DataFrame
-        df[new_col] = df.apply(replace_char_and_eval, args=(stat_func, specified_column, *args), axis=1)
-
+        df = replace_char_and_eval(df, stat_func, new_col, specified_column, *args)
         return df
     
     # If stat_func contains a function, apply it
