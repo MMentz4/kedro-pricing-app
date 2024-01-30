@@ -60,25 +60,25 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
          node(
             func=term_structure,
-            inputs=['param_func_output_df','DT_asset_value'],
-            outputs='DT_asset_value_output_df',
-            name='DT_asset_value_node'
+            inputs=['param_func_output_df','asset_value'],
+            outputs='asset_value_output_df',
+            name='asset_value_node'
         ),
         node(
             func=ECL,
-            inputs=['DT_asset_value_output_df'],
+            inputs=['asset_value_output_df'],
             outputs='ecl_output_df',
             name='ECL_node'
         ),
         node(
             func=term_structure,
-            inputs=['ecl_output_df','asset_value'],
-            outputs='asset_value_output_df',
-            name='asset_value_node'
+            inputs=['ecl_output_df','DT_asset_value'],
+            outputs='DT_asset_value_output_df',
+            name='DT_asset_value_node'
         ),
         node(
             func=add_param_as_column,
-            inputs=['params:capital_ratio', 'asset_value_output_df', 'params:col_name'],
+            inputs=['params:capital_ratio', 'DT_asset_value_output_df', 'params:col_name'],
             outputs='cap_ratio_output_df',
             name='add_cap_ratio_node'
         ),

@@ -29,15 +29,6 @@ pd_data:
             'mob': int
             'pd': float
 
-DT_asset_value:
-    type: pandas.CSVDataset
-    filepath: data/input/DT_asset_value.csv
-    load_args:
-        dtype:
-            'unique_id': int
-            'DT_asset_value': float
-            'depreciation': float
-
 asset_value:
     type: pandas.CSVDataset
     filepath: data/input/asset_value.csv
@@ -45,6 +36,15 @@ asset_value:
         dtype:
             'unique_id': int
             'asset_value': float
+            'depreciation': float
+
+DT_asset_value:
+    type: pandas.CSVDataset
+    filepath: data/input/DT_asset_value.csv
+    load_args:
+        dtype:
+            'unique_id': int
+            'DT_asset_value': int
             'depreciation': float
 
 

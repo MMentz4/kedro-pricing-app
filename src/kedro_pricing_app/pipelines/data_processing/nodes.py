@@ -44,7 +44,8 @@ def calculate_payments(df):
         # Calculate the principal for the current month
         principal_payment = monthly_payment - interest_payment
 
-        # If the principal payment for this month is greater than the opening balance, adjust the principal payment and the monthly payment
+        # If the principal payment for this month is greater than the opening balance, \
+        #adjust the principal payment and the monthly payment
         mask = opening_balance - principal_payment < 0
         principal_payment[mask] = opening_balance[mask]
         monthly_payment[mask] = principal_payment[mask] + interest_payment[mask]
@@ -169,25 +170,26 @@ def rename_pd_columns(df):
     return df
 
 def ECL(df):
-    #Create a column EAD that is equal to the average balance
     df['EAD'] = df['average_balance']
     df['asset_value_sale'] = df['asset_value']
-    df['LGD'] = (df['EAD'] - df['asset_value'])/df['EAD'] 
+    df['LGD'] = (df['EAD'] - df['asset_value']) / df['EAD'] 
     df['ECL'] = df['pd']*df['LGD']*df['EAD']
     return df
 
 def total_capital(df):
-    #calc acg balance in foundation function, how would we import asset value?
-    df['LTV'] = df['average_balance']/df['DT_asset_value']
+    df['LTV'] = df['average_balance']/df['asset_value']
     df['TCC_PD'] = df['pd']
     df['EAD_avg'] = df['average_balance']
     df['DT_asset_value_sale'] = df['DT_asset_value']
     df['DT_LGD'] = df['EAD_avg'] - df['DT_asset_value_sale']
     df['def_bal'] = df['average_balance'] * df['pd']
     df['non_def_bal'] = df['average_balance'] - df['def_bal']
-    df['corr_coeff'] = 0.03*(1-math.exp(-35*df['TCC_PD']))/(1-math.exp(-35))+0.16*(1-(1-math.exp(-35*df['TCC_PD']))/(1-math.exp(-35)))
-    df['non_def_RWA'] = df['DT_LGD'] * (norm.cdf(((1 - df['corr_coeff']) ^ -0.5) * norm.pdf(df['TCC_PD']) + ((df['corr_coeff'] / (1 - df['corr_coeff'])) ^ 0.5 * norm.pdf(0.999))) - df['TCC_PD'])*df['non_def_bal']*12.5*1.06
-    df['def_RWA'] = max(0, (12.5*(df['DT_LGD']-df['ECL']/df['average_balance']))*df['def_bal'])
+    df['corr_coeff'] = 0.03*(1-np.exp(-35*df['TCC_PD']))/(1-np.exp(-35))+0.16*(1-(1-np.exp(-35*df['TCC_PD']))/(1-np.exp(-35)))
+    df['non_def_RWA'] = df['DT_LGD'] * (norm.cdf(((1 - df['corr_coeff']) ** -0.5) \
+                                * norm.pdf(df['TCC_PD']) + ((df['corr_coeff']\
+                                / (1 - df['corr_coeff']))** 0.5 * norm.pdf(0.999)))\
+                                - df['TCC_PD'])*df['non_def_bal']*12.5*1.06
+    df['def_RWA'] = (12.5*(df['DT_LGD']-df['ECL']/df['average_balance'])*df['def_bal']).clip(lower=0)
     df['total_RWA'] = df['non_def_RWA'] + df['def_RWA']
     df['total_cap'] = df['total_RWA'] * df['capital_ratio']
     return df
