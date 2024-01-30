@@ -5,8 +5,10 @@ generated using Kedro 0.19.1
 import pandas as pd 
 import numpy as np 
 import re
+import math
 
 from scipy import stats
+from scipy.stats import norm
 
 def calculate_payments(df):
     # Convert DataFrame columns to NumPy arrays for efficiency
@@ -24,8 +26,8 @@ def calculate_payments(df):
     # Calculate monthly payment
     monthly_payment = exposure * (interest_rate / (1 - (1 + interest_rate) ** -loan_term))
 
-    # Initialize the remaining balance as the loan amount
-    remaining_balance = exposure.copy()
+    # Initialize the opening balance as the loan amount
+    opening_balance = exposure.copy()
 
     # Initialize the t and t+1 counter
     t = 0
@@ -35,27 +37,35 @@ def calculate_payments(df):
     amortization_schedules = []
 
     # While there is still a balance remaining, calculate the interest and principal for the current payment
-    while remaining_balance.min() > 0:
+    while opening_balance.min() > 0:
         # Calculate the interest for the current month
-        interest_payment = remaining_balance * interest_rate
+        interest_payment = opening_balance * interest_rate
 
         # Calculate the principal for the current month
         principal_payment = monthly_payment - interest_payment
 
-        # If the principal payment for this month is greater than the remaining balance, adjust the principal payment and the monthly payment
-        mask = remaining_balance - principal_payment < 0
-        principal_payment[mask] = remaining_balance[mask]
+        # If the principal payment for this month is greater than the opening balance, adjust the principal payment and the monthly payment
+        mask = opening_balance - principal_payment < 0
+        principal_payment[mask] = opening_balance[mask]
         monthly_payment[mask] = principal_payment[mask] + interest_payment[mask]
+
+        # Calculate the closing balance for the current month
+        closing_balance = opening_balance - monthly_payment
+
+        # Calculate the average balance for the current month
+        average_balance = (opening_balance + closing_balance) / 2
 
         # Append the calculated values to the amortization schedules
         amortization_schedules.append(
             pd.DataFrame({
                 't': t,
                 't+1': t_plus_1,
+                'opening_balance': opening_balance,
+                'monthly_payment': monthly_payment,
                 'interest_payment': interest_payment,
                 'principal_payment': principal_payment,
-                'monthly_payment': monthly_payment,
-                'remaining_balance': remaining_balance,
+                'closing_balance': closing_balance,
+                'average_balance': average_balance,
                 'unique_id': unique_id,
                 'date_stamp': date_stamp,
                 'interest_rate': interest_rate,
@@ -68,8 +78,8 @@ def calculate_payments(df):
             })
         )
 
-        # Update the remaining balance
-        remaining_balance -= principal_payment
+        # Update the opening balance for the next month
+        opening_balance = closing_balance.copy()
 
         # Increment the t and t+1 counters
         t += 1
@@ -77,6 +87,9 @@ def calculate_payments(df):
 
     # Concatenate all the amortization schedules into a single DataFrame
     amortization_schedules = pd.concat(amortization_schedules, ignore_index=True)
+
+    # Sort the DataFrame by 'unique_id' and 't'
+    amortization_schedules.sort_values(by=['unique_id', 't'], inplace=True)
 
     return amortization_schedules
 
@@ -141,8 +154,8 @@ def parametric_function(df, stat_func, new_col, specified_column, *args):
 
         return df
     
-def add_param_as_column(risk, main_df, calc_variable, column_name):
-    main_df[column_name] = risk * main_df[calc_variable]
+def add_param_as_column(risk, main_df, column_name):
+    main_df[column_name] = risk
     return main_df
 
 def rename_acc_lvl_columns(df):
@@ -154,3 +167,30 @@ def rename_acc_lvl_columns(df):
 def rename_pd_columns(df):
     df = df.rename(columns={'mob': 't+1'})
     return df
+
+def ECL(df):
+    #Create a column EAD that is equal to the average balance
+    df['EAD'] = df['average_balance']
+    df['asset_value_sale'] = df['asset_value']
+    df['LGD'] = (df['EAD'] - df['asset_value'])/df['EAD'] 
+    df['ECL'] = df['pd']*df['LGD']*df['EAD']
+    return df
+
+def total_capital(df):
+    #calc acg balance in foundation function, how would we import asset value?
+    df['LTV'] = df['average_balance']/df['DT_asset_value']
+    df['TCC_PD'] = df['pd']
+    df['EAD_avg'] = df['average_balance']
+    df['DT_asset_value_sale'] = df['DT_asset_value']
+    df['DT_LGD'] = df['EAD_avg'] - df['DT_asset_value_sale']
+    df['def_bal'] = df['average_balance'] * df['pd']
+    df['non_def_bal'] = df['average_balance'] - df['def_bal']
+    df['corr_coeff'] = 0.03*(1-math.exp(-35*df['TCC_PD']))/(1-math.exp(-35))+0.16*(1-(1-math.exp(-35*df['TCC_PD']))/(1-math.exp(-35)))
+    df['non_def_RWA'] = df['DT_LGD'] * (norm.cdf(((1 - df['corr_coeff']) ^ -0.5) * norm.pdf(df['TCC_PD']) + ((df['corr_coeff'] / (1 - df['corr_coeff'])) ^ 0.5 * norm.pdf(0.999))) - df['TCC_PD'])*df['non_def_bal']*12.5*1.06
+    df['def_RWA'] = max(0, (12.5*(df['DT_LGD']-df['ECL']/df['average_balance']))*df['def_bal'])
+    df['total_RWA'] = df['non_def_RWA'] + df['def_RWA']
+    df['total_cap'] = df['total_RWA'] * df['capital_ratio']
+    return df
+
+
+

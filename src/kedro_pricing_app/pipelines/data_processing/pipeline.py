@@ -13,7 +13,10 @@ from kedro.pipeline import Pipeline, pipeline, node
 #                 ,rand_func\
 #                 ,any_func_apply\
 #                 ,replace_char_and_eval\
-#                 ,add_param_as_column
+#                 ,add_param_as_column\
+#                 ,ECL\
+#                 ,total_capital
+#                 
 
 from .nodes import *
 
@@ -45,14 +48,44 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
         node(
             func=add_param_as_column,
-            inputs=['params:risk', 'term_structure_output_df', 'params:calc_variable', 'params:column_name'],
+            inputs=['params:risk', 'term_structure_output_df', 'params:column_name'],
             outputs='single_param_output_df',
             name='add_param_as_column_node'
         ),
         node(
             func=parametric_function,
             inputs=['single_param_output_df', 'params:stat_func', 'params:new_col', 'params:arg1', 'params:arg2'],
-            outputs='param_func_output',
+            outputs='param_func_output_df',
             name='parametric_function_node'
+        ),
+         node(
+            func=term_structure,
+            inputs=['param_func_output_df','DT_asset_value'],
+            outputs='DT_asset_value_output_df',
+            name='DT_asset_value_node'
+        ),
+        node(
+            func=ECL,
+            inputs=['DT_asset_value_output_df'],
+            outputs='ecl_output_df',
+            name='ECL_node'
+        ),
+        node(
+            func=term_structure,
+            inputs=['ecl_output_df','asset_value'],
+            outputs='asset_value_output_df',
+            name='asset_value_node'
+        ),
+        node(
+            func=add_param_as_column,
+            inputs=['params:capital_ratio', 'asset_value_output_df', 'params:col_name'],
+            outputs='cap_ratio_output_df',
+            name='add_cap_ratio_node'
+        ),
+        node(
+            func=total_capital,
+            inputs=['cap_ratio_output_df'],
+            outputs='total_capital_output_df',
+            name='total_capital_node'
         )
     ])

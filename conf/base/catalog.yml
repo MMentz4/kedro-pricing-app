@@ -5,7 +5,7 @@
 
 acc_lvl_data:
     type: pandas.CSVDataset
-    filepath: data/input/acc_lvl_data.csv
+    filepath: data/input/acc_lvl_data3.csv
     load_args:
         dtype:
             'loan_id': int
@@ -29,15 +29,22 @@ pd_data:
             'mob': int
             'pd': float
 
-renamed_amortization_data:
+DT_asset_value:
     type: pandas.CSVDataset
-    filepath: data/input/pd_data.csv
+    filepath: data/input/DT_asset_value.csv
+    load_args:
+        dtype:
+            'unique_id': int
+            'DT_asset_value': float
+            'depreciation': float
 
-renamed_acc_lvl_data:
-    type: pandas.ParquetDataset
-    filepath: data/output/intermediate/renamed_acc_lvl_data.parquet
+asset_value:
+    type: pandas.CSVDataset
+    filepath: data/input/asset_value.csv
+    load_args:
+        dtype:
+            'unique_id': int
+            'asset_value': float
+            'depreciation': float
 
-renamed_pd_data:
-    type: pandas.ParquetDataset
-    filepath: data/output/intermediate/renamed_pd_data.parquet
 

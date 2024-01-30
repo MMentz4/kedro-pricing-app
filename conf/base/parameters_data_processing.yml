@@ -6,12 +6,16 @@
 
 # Parametric function input
 stat_func: "a ** 2 + b ** 2"
-specified_column: "remaining_balance" 
+specified_column: "closing_balance" 
 new_col: 'parametric_calc_val'
 arg1: 'param1'
 arg2: 'param2'
 
 # Single parameter input function input
 risk: 0.1
-calc_variable: "remaining_balance"
+calc_variable: "closing_balance"
 column_name: "risk_calculation"
+
+# Single parameter input function input
+capital_ratio: 0.5
+col_name: "capital_ratio"
